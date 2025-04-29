@@ -1,0 +1,5 @@
+notion-client==2.2.1
+requests
+pandas
+pytrends        # for Google-Trends helper
+python-dateutil # used by pandas for date handling
