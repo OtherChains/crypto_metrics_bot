@@ -1,0 +1,31 @@
+name: Update Notion dashboard
+
+on:
+  # — run automatically every day at 09:00 Eastern (13:00 UTC)
+  schedule:
+    - cron: '0 13 * * *'
+  # — allow a manual push-button run
+  workflow_dispatch:
+
+jobs:
+  push-metrics:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run update script
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DB:    ${{ secrets.NOTION_DB }}
+          # add other API keys the same way, e.g. FG_API_KEY
+        run: python update.py
