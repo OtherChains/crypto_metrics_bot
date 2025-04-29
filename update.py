@@ -107,5 +107,5 @@ payload = {
         "CME OI ($B)":            {"number": btc_oi()},
         "NFT Vol ($M/day)":       {"number": nft_volume()},
         "Fear-Greed":             {"number": fear_greed()},
-        "Google Trend":           {"number": google_trend()}}
+        "Google Trend":           {"number": google_trend()}}}
    
