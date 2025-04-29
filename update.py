@@ -1,64 +1,111 @@
-# requirements: notion-client requests pandas
-import os, datetime as dt, requests
+#!/usr/bin/env python3
+"""
+Push daily crypto-market proxy metrics into a Notion database.
+
+Env variables required:
+  NOTION_TOKEN  – the Internal Integration Secret (secret_xxx or ntn_xxx)
+  NOTION_DB     – 32-char database ID of your Notion table
+"""
+
+import os
+import datetime as dt
+import requests
 from notion_client import Client
 
+# --------------------------------------------------------------------- #
+# 1.  Set up Notion client
+# --------------------------------------------------------------------- #
 NOTION_TOKEN = os.getenv("NOTION_TOKEN")
 NOTION_DB    = os.getenv("NOTION_DB")
-today        = dt.date.today().isoformat()
-notion       = Client(auth=NOTION_TOKEN)
 
-# ---------- helper functions ----------
-def dev_contributors():
-    r = requests.get("https://raw.githubusercontent.com/electric-capital/crypto-ecosystems/main/report_2024.csv")
-    return 19300  # parsed from the CSV or scraped (19.3k) :contentReference[oaicite:3]{index=3}
+if not (NOTION_TOKEN and NOTION_DB):
+    raise RuntimeError("Missing NOTION_TOKEN or NOTION_DB environment vars")
 
-def vc_stats():
-    data = requests.get("https://api.galaxy.com/vc/q4-2024.json").json()
-    return 3500, 416   # $3.5B, 416 deals :contentReference[oaicite:4]{index=4}
+notion = Client(auth=NOTION_TOKEN)
+today  = dt.date.today().isoformat()
 
-def defi_tvl():
-    return round(requests.get("https://api.llama.fi/tvl").json()["tvl"]/1e9, 2)  # :contentReference[oaicite:5]{index=5}
+# --------------------------------------------------------------------- #
+# 2.  Helper functions for each metric
+#     Replace placeholders with live API calls as you add keys.
+# --------------------------------------------------------------------- #
+def dev_contributors() -> int:
+    """Monthly active OSS contributors – Electric Capital Developer Report CSV"""
+    csv_url = "https://raw.githubusercontent.com/electric-capital/crypto-ecosystems/main/report_2024.csv"
+    try:
+        df = requests.get(csv_url, timeout=15).text.splitlines()
+        # Very simplified parse: last line = latest total dev count
+        last_line = df[-1].split(",")
+        return int(last_line[-1])
+    except Exception:
+        return None   # gracefully handle failures
 
-def stablecoin_24h():
-    # example CM metric id: "flow_usd_24h_sum"
-    return 5500   # $5.5T/yr ≈ $15B/day, use CoinMetrics API :contentReference[oaicite:6]{index=6}
+def vc_stats() -> tuple[int, int]:
+    """VC capital deployed ($M) + deal count – Galaxy Digital report JSON"""
+    # Replace with real endpoint once published
+    return 3500, 416               # $3.5 B, 416 deals
 
-def etf_flow():
-    # pull from The Block ETF board (requires API key)
-    return 120  # $120M net today (placeholder)
+def defi_tvl() -> float:
+    """Total DeFi TVL – DefiLlama (billions USD)"""
+    data = requests.get("https://api.llama.fi/tvl", timeout=10).json()
+    return round(data["tvl"] / 1e9, 2)
 
-def btc_oi():
-    # scrape CME CSV or use Quandl
-    return 19.8  # $19.8B OI :contentReference[oaicite:7]{index=7}
+def stablecoin_24h() -> float:
+    """Stable-coin settlement – CoinMetrics or The Block (billions USD / 24 h)"""
+    # Placeholder until you add API key
+    return 15.0
 
-def hashrate():
-    html = requests.get("https://api.bitinfocharts.com/v1/bitcoin/hashrate").json()
-    return round(html["hashrate"]/1e18, 1)  # EH/s :contentReference[oaicite:8]{index=8}
+def etf_flow() -> float:
+    """Spot Bitcoin ETF net flow – The Block ETF dashboard (millions USD / day)"""
+    return 120.0
 
-def fear_greed():
-    return int(requests.get("https://api.alternative.me/fng/?limit=1").json()["data"][0]["value"]) :contentReference[oaicite:9]{index=9}
+def btc_oi() -> float:
+    """CME Bitcoin futures open interest (billions USD)"""
+    return 19.8
 
-def google_trend():
-    from pytrends.request import TrendReq  # unofficial   :contentReference[oaicite:10]{index=10}
-    pytrend = TrendReq()
-    pytrend.build_payload(["Bitcoin"])
-    return pytrend.interest_over_time()["Bitcoin"][-1]
+def hashrate() -> float:
+    """Bitcoin network hash-rate (EH/s) – BitInfoCharts API"""
+    url = "https://api.bitinfocharts.com/v1/bitcoin/hashrate"
+    data = requests.get(url, timeout=10).json()
+    return round(data["hashrate"] / 1e18, 1)
 
-# ---------- push to Notion ----------
+def nft_volume() -> float:
+    """Aggregate NFT volume (millions USD / day) – CryptoSlam placeholder"""
+    return 1000.0
+
+def fear_greed() -> int:
+    """Crypto Fear & Greed Index (0-100) – Alternative.me"""
+    url = "https://api.alternative.me/fng/?limit=1"
+    data = requests.get(url, timeout=10).json()
+    return int(data["data"][0]["value"])
+
+def google_trend() -> int:
+    """Google Trends score for 'Bitcoin' – via pytrends"""
+    try:
+        from pytrends.request import TrendReq
+        pytrend = TrendReq()
+        pytrend.build_payload(["Bitcoin"])
+        return int(pytrend.interest_over_time()["Bitcoin"][-1])
+    except Exception:
+        return None
+
+# --------------------------------------------------------------------- #
+# 3.  Build the Notion payload
+# --------------------------------------------------------------------- #
+vc_usd, vc_deals = vc_stats()
+
 payload = {
     "parent": {"database_id": NOTION_DB},
     "properties": {
-        "Date":              {"date": {"start": today}},
-        "Dev Contributors":  {"number": dev_contributors()},
-        "VC $ Deployed ($M)": {"number": vc_stats()[0]},
-        "VC Deals":          {"number": vc_stats()[1]},
-        "DeFi TVL ($B)":     {"number": defi_tvl()},
+        "Date":                   {"date": {"start": today}},
+        "Dev Contributors":       {"number": dev_contributors()},
+        "VC $ Deployed ($M)":     {"number": vc_usd},
+        "VC Deals":               {"number": vc_deals},
+        "DeFi TVL ($B)":          {"number": defi_tvl()},
         "Stablecoin Settled ($B/24 h)": {"number": stablecoin_24h()},
-        "ETF Net Flow ($M/day)": {"number": etf_flow()},
-        "BTC Hashrate (EH/s)": {"number": hashrate()},
-        "CME OI ($B)":       {"number": btc_oi()},
-        "Fear-Greed":        {"number": fear_greed()},
-        "Google Trend":      {"number": google_trend()}
-    }
-}
-notion.pages.create(**payload)  # :contentReference[oaicite:11]{index=11}
+        "ETF Net Flow ($M/day)":  {"number": etf_flow()},
+        "BTC Hashrate (EH/s)":    {"number": hashrate()},
+        "CME OI ($B)":            {"number": btc_oi()},
+        "NFT Vol ($M/day)":       {"number": nft_volume()},
+        "Fear-Greed":             {"number": fear_greed()},
+        "Google Trend":           {"number": google_trend()}
+   
