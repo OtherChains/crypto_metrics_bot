@@ -28,4 +28,4 @@ jobs:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           NOTION_DB:    ${{ secrets.NOTION_DB }}
           # add other API keys the same way, e.g. FG_API_KEY
-        run: python update.py
+        run: python debug_notion.py
