@@ -88,6 +88,7 @@ def google_trend() -> int | None:
     except Exception as e:
         print(f"[WARN] google_trend – {e}")
         return None
+
 def meme_volume_m() -> float | None:
     """Sum 24‑h volume of all coins in CoinGecko's 'meme‑token' category."""
     total = 0
@@ -115,7 +116,6 @@ if not (NOTION_TOKEN and NOTION_DB):
 
 notion = Client(auth=NOTION_TOKEN)
 today  = dt.date.today().isoformat()
-vc_usd, vc_deals = vc_stats()
 
 payload = {
     "parent": {"database_id": NOTION_DB},
