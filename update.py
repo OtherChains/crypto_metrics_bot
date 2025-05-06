@@ -50,27 +50,35 @@ def vc_stats() -> tuple[int | None, int | None]:
 
 def defi_tvl() -> float | None:
     """Total DeFi TVL (billions USD) – DefiLlama."""
-    data = safe_get_json("https://api.llama.fi/summary/all")
+    data = safe_get_json("https://yields.llama.fi/tvl")
     if data and "tvl" in data:
         return round(data["tvl"] / 1e9, 2)
     return None
 
 def stablecoin_24h() -> float | None:
     """Stable-coin settlement (billions USD / 24 h)."""
-    # 🔧 placeholder until you add a CoinMetrics key
-    return 15.0
+    url = "https://api.allium.so/stablecoins/volume?period=1d&adjusted=true"
+    hdr = {"X-API-KEY": os.getenv("ALLIUM_KEY")}
+    d = safe_get_json(url, headers=hdr)
+    return round(d["value"] / 1e9, 1) if d else None
 
 def etf_flow() -> float | None:
     """Spot BTC ETF net flow (millions USD / day)."""
-    return 120.0
+    d = safe_get_json("https://api.wtf.tf/etf/flows")
+    return d["netflow_m"] if d else None
+
 
 def btc_oi() -> float | None:
-    """CME Bitcoin futures open interest (billions USD)."""
-    return 19.8
+    import pandas as pd
+    url = ("https://www.cmegroup.com/"
+           "CmeWS/exp/voiProductDetailsViewExport.ctl?media=xls&productId=329089")
+    df = pd.read_excel(url)
+    oi = df.iloc[-1]["Open Interest"]
+    return round(oi / 1e9, 2)
 
 def hashrate() -> float | None:
     """Bitcoin network hash-rate (EH/s)."""
-    data = safe_get_json("https://api.bitinfocharts.com/v1/bitcoin/hashrate")
+    data = safe_get_json("https://ccaf.io/api/v1/bitcoin/hashrate/latest")
     if data and "hashrate" in data:
         return round(data["hashrate"] / 1e18, 1)
     return None
@@ -94,6 +102,22 @@ def google_trend() -> int | None:
     except Exception as e:
         print(f"[WARN] google_trend – {e}")
         return None
+def meme_volume_m() -> float | None:
+    """Sum 24‑h volume of all coins in CoinGecko's 'meme‑token' category."""
+    total = 0
+    try:
+        for page in (1, 2):          # first 500 tokens
+            url = (f"https://api.coingecko.com/api/v3/coins/markets"
+                   f"?vs_currency=usd&category=meme-token"
+                   f"&order=volume_desc&per_page=250&page={page}&sparkline=false")
+            data = requests.get(url, timeout=15).json()
+            if not data:
+                break
+            total += sum(c["total_volume"] for c in data if c["total_volume"])
+    except Exception as e:
+        print("[WARN] meme_volume –", e)
+        return None
+    return round(total / 1e6, 1)        # to millions USD
 
 # ------------------------------------------------------------------ #
 # 2.  Build and push the Notion row
@@ -122,6 +146,7 @@ payload = {
         "NFT Vol ($M/day)":       {"number": nft_volume()},
         "Fear-Greed":             {"number": fear_greed()},
         "Google Trend":           {"number": google_trend()},
+        "Meme Volume M":          {"number": meme_volume_m()},
     },
 }
 
