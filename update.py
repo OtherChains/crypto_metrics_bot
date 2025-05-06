@@ -40,7 +40,7 @@ def defi_tvl() -> float | None:
     return None
 
 def stablecoin_24h() -> float | None:
-    url = "https://stablecoins.llama.fi/summary/flow?adjusted=true"
+    url = "https://stablecoins.llama.fi/summary?adjusted=true&span=24h"
     d = safe_get_json(url)
     try:
         return round(d["flow"]["24h"] / 1e9, 1)   # returns raw USD
@@ -48,26 +48,28 @@ def stablecoin_24h() -> float | None:
         return None
 
 def etf_flow() -> float | None:
-    d = safe_get_json("https://api.wtf.tf/etf/flows")
+    url = "https://raw.githubusercontent.com/absoluteblast/etf-flows/main/latest.json"
+    d = safe_get_json(url)
     try:
         return round(d["netflow_m"], 1)
     except (TypeError, KeyError):
         return None
 
 def btc_oi() -> float | None:
-    import pandas as pd
-    url = ("https://www.cmegroup.com/"
-           "CmeWS/exp/voiProductDetailsViewExport.ctl?media=xls&productId=329089")
-    df = pd.read_excel(url)
-    oi = df.iloc[-1]["Open Interest"]
-    return round(oi / 1e9, 2)
+    url = "https://api.blockchaincenter.net/cme/openinterest"
+    d = safe_get_json(url)
+    try:
+        return round(d["open_interest_usd"] / 1e9, 2)
+    except (TypeError, KeyError):
+        return None
 
 def hashrate() -> float | None:
-    """Bitcoin network hash-rate (EH/s)."""
-    data = safe_get_json("https://ccaf.io/api/v1/bitcoin/hashrate/latest")
-    if data and "hashrate" in data:
-        return round(data["hashrate"] / 1e18, 1)
-    return None
+    try:
+        phs = float(requests.get("https://blockchain.info/q/hashrate", timeout=10).text)
+        return round(phs / 1e6, 1)   # convert PH/s → EH/s
+    except Exception as e:
+        print("[WARN] hashrate –", e)
+        return None
 
 def nft_volume() -> float | None:
     """Aggregate NFT volume (millions USD / day)."""
