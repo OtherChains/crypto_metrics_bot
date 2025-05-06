@@ -3,3 +3,4 @@ requests>=2.32
 pytrends==4.9.2         # Google-Trends helper
 pandas==2.1
 openpyxl
+numpy==1.26.4  
