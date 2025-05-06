@@ -71,10 +71,6 @@ def hashrate() -> float | None:
         print("[WARN] hashrate –", e)
         return None
 
-def nft_volume() -> float | None:
-    """Aggregate NFT volume (millions USD / day)."""
-    return 1000.0  # 🔧 placeholder
-
 def fear_greed() -> int | None:
     data = safe_get_json("https://api.alternative.me/fng/?limit=1")
     if data:
@@ -127,7 +123,6 @@ payload = {
         "ETF Net Flow ($M/day)":  {"number": etf_flow()},
         "BTC Hashrate (EH/s)":    {"number": hashrate()},
         "CME OI ($B)":            {"number": btc_oi()},
-        "NFT Vol ($M/day)":       {"number": nft_volume()},
         "Fear-Greed":             {"number": fear_greed()},
         "Google Trend":           {"number": google_trend()},
         "Meme Volume M":          {"number": meme_volume_m()},
